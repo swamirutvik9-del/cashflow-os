@@ -8,17 +8,26 @@ const Signup = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const { signup } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        const res = await signup(name, email, password);
-        if (res.success) {
-            navigate('/');
-        } else {
-            setError(res.error);
+        setLoading(true);
+
+        try {
+            const res = await signup(name, email, password);
+            if (res.success) {
+                navigate('/');
+            } else {
+                setError(res.error);
+            }
+        } catch (err) {
+            setError('An unexpected error occurred. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -77,9 +86,10 @@ const Signup = () => {
 
                     <button
                         type="submit"
-                        className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-lg transition-colors shadow-lg shadow-primary/30"
+                        disabled={loading}
+                        className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-lg transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Create Account
+                        {loading ? 'Creating Account...' : 'Create Account'}
                     </button>
                 </form>
 

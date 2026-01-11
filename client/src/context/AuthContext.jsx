@@ -33,7 +33,14 @@ export const AuthProvider = ({ children }) => {
 
     const signup = async (name, email, password) => {
         try {
-            const res = await axios.post('/api/auth/signup', { name, email, password });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+            const res = await axios.post('/api/auth/signup', { name, email, password }, {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.user));
             setUser(res.data.user);
@@ -41,7 +48,10 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error("Signup Error Details:", error);
             let errorMessage = "Signup failed";
-            if (error.response) {
+
+            if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+                errorMessage = "Server is taking too long to respond. The backend may be sleeping. Please try again in 30 seconds.";
+            } else if (error.response) {
                 // Server responded with a status code
                 errorMessage = error.response.data?.error || `Server Error (${error.response.status}): ${error.response.statusText}`;
                 if (typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
@@ -49,7 +59,7 @@ export const AuthProvider = ({ children }) => {
                 }
             } else if (error.request) {
                 // Request made but no response
-                errorMessage = "No response from server. Check your internet or server status.";
+                errorMessage = "No response from server. The backend may be sleeping or down.";
             } else {
                 errorMessage = error.message;
             }
