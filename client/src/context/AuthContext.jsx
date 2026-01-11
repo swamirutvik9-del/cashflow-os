@@ -40,8 +40,19 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             console.error("Signup Error Details:", error);
-            const errorMessage = error.response?.data?.error ||
-                (error.message === "Network Error" ? "Cannot connect to server (Is it running?)" : "Signup failed");
+            let errorMessage = "Signup failed";
+            if (error.response) {
+                // Server responded with a status code
+                errorMessage = error.response.data?.error || `Server Error (${error.response.status}): ${error.response.statusText}`;
+                if (typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
+                    errorMessage = "Error: Connected to Frontend instead of Backend. Check VITE_API_URL.";
+                }
+            } else if (error.request) {
+                // Request made but no response
+                errorMessage = "No response from server. Check your internet or server status.";
+            } else {
+                errorMessage = error.message;
+            }
             return { success: false, error: errorMessage };
         }
     };
