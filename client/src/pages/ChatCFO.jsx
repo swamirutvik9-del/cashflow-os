@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import aiService from '../services/aiService';
 import { Send, Bot, User, Sparkles, StopCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,7 +20,7 @@ const ChatCFO = () => {
         }
     }, [messages, loading]);
 
-    const handleSend = async (e) => {
+    const handleSend = (e) => {
         e.preventDefault();
         if (!input.trim() || loading) return;
 
@@ -30,24 +30,26 @@ const ChatCFO = () => {
         setLoading(true);
 
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post('/api/ai/chat', { message: userMsg.text }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // Simulate "thinking" delay for realism
+            setTimeout(() => {
+                const response = aiService.generateResponse(userMsg.text);
+                aiService.saveChat(userMsg.text, response);
 
-            const aiMsg = {
-                id: Date.now() + 1,
-                role: 'ai',
-                text: res.data.message
-            };
-            setMessages(prev => [...prev, aiMsg]);
+                const aiMsg = {
+                    id: Date.now() + 1,
+                    role: 'ai',
+                    text: response
+                };
+                setMessages(prev => [...prev, aiMsg]);
+                setLoading(false);
+            }, 800);
         } catch (error) {
+            console.error('AI Error:', error);
             setMessages(prev => [...prev, {
                 id: Date.now() + 1,
                 role: 'ai',
-                text: 'I am unable to retrieve your live data at the moment. However, a good rule of thumb is to keep 3 months of operating expenses in reserve.'
+                text: 'I apologize, but I encountered an issue. Please try again.'
             }]);
-        } finally {
             setLoading(false);
         }
     };

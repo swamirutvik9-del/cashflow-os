@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import mockData from '../services/mockData';
 import { TrendingUp, TrendingDown, Wallet, Plus, Minus, ArrowUpRight, ArrowDownRight, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TrendChart, ExpenseChart, HealthIndicator } from '../components/DashboardCharts';
@@ -48,21 +48,15 @@ const Dashboard = () => {
     });
     const [loading, setLoading] = useState(true);
 
-    const fetchFinancials = async () => {
+    const fetchFinancials = () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.get('/api/financials', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            const records = res.data;
-            const inflow = records.filter(r => r.type === 'INFLOW').reduce((sum, r) => sum + r.amount, 0);
-            const outflow = records.filter(r => r.type === 'OUTFLOW').reduce((sum, r) => sum + r.amount, 0);
+            const summary = mockData.getFinancialSummary();
+            const records = mockData.getRecords();
 
             setFinancials({
-                balance: inflow - outflow,
-                inflow,
-                outflow,
+                balance: summary.balance,
+                inflow: summary.monthlyInflow,
+                outflow: summary.monthlyOutflow,
                 transactions: records.sort((a, b) => new Date(b.date) - new Date(a.date))
             });
         } catch (error) {
@@ -76,19 +70,16 @@ const Dashboard = () => {
         fetchFinancials();
     }, []);
 
-    const addTransaction = async (type) => {
+    const addTransaction = (type) => {
         const amount = prompt(`Enter ${type} amount:`);
         if (!amount) return;
 
         try {
-            const token = localStorage.getItem('token');
-            await axios.post('/api/financials', {
+            mockData.addRecord({
                 type: type === 'Income' ? 'INFLOW' : 'OUTFLOW',
                 amount: parseFloat(amount),
                 category: 'Uncategorized',
                 description: `Manual ${type} entry`
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
             });
             fetchFinancials();
         } catch (error) {

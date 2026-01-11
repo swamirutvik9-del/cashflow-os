@@ -1,5 +1,4 @@
 import { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -10,66 +9,81 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const savedUser = localStorage.getItem('user');
-        if (token && savedUser) {
+        // Check if user is already logged in
+        const savedUser = localStorage.getItem('cashflow_current_user');
+        if (savedUser) {
             setUser(JSON.parse(savedUser));
-            // Optional: Verify token with backend /me endpoint here
         }
         setLoading(false);
     }, []);
 
     const login = async (email, password) => {
         try {
-            const res = await axios.post('/api/auth/login', { email, password });
-            localStorage.setItem('token', res.data.token);
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-            setUser(res.data.user);
+            // Get all users from localStorage
+            const users = JSON.parse(localStorage.getItem('cashflow_users') || '[]');
+
+            // Find user with matching email
+            const user = users.find(u => u.email === email);
+
+            if (!user) {
+                return { success: false, error: 'Invalid email or password' };
+            }
+
+            // Check password (in demo, we store plain text - in real app, hash it!)
+            if (user.password !== password) {
+                return { success: false, error: 'Invalid email or password' };
+            }
+
+            // Login successful - save current user
+            const userData = { id: user.id, email: user.email, name: user.name };
+            localStorage.setItem('cashflow_current_user', JSON.stringify(userData));
+            setUser(userData);
+
             return { success: true };
         } catch (error) {
-            return { success: false, error: error.response?.data?.error || 'Login failed' };
+            console.error("Login Error:", error);
+            return { success: false, error: 'Login failed. Please try again.' };
         }
     };
 
     const signup = async (name, email, password) => {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+            // Get existing users
+            const users = JSON.parse(localStorage.getItem('cashflow_users') || '[]');
 
-            const res = await axios.post('/api/auth/signup', { name, email, password }, {
-                signal: controller.signal
-            });
+            // Check if email already exists
+            const existingUser = users.find(u => u.email === email);
+            if (existingUser) {
+                return { success: false, error: 'This email is already registered.' };
+            }
 
-            clearTimeout(timeoutId);
-            localStorage.setItem('token', res.data.token);
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-            setUser(res.data.user);
+            // Create new user
+            const newUser = {
+                id: Date.now().toString(),
+                name,
+                email,
+                password, // In demo, plain text. In real app, hash this!
+                createdAt: new Date().toISOString()
+            };
+
+            // Save new user to users array
+            users.push(newUser);
+            localStorage.setItem('cashflow_users', JSON.stringify(users));
+
+            // Auto-login the new user
+            const userData = { id: newUser.id, email: newUser.email, name: newUser.name };
+            localStorage.setItem('cashflow_current_user', JSON.stringify(userData));
+            setUser(userData);
+
             return { success: true };
         } catch (error) {
-            console.error("Signup Error Details:", error);
-            let errorMessage = "Signup failed";
-
-            if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
-                errorMessage = "Server is taking too long to respond. The backend may be sleeping. Please try again in 30 seconds.";
-            } else if (error.response) {
-                // Server responded with a status code
-                errorMessage = error.response.data?.error || `Server Error (${error.response.status}): ${error.response.statusText}`;
-                if (typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
-                    errorMessage = "Error: Connected to Frontend instead of Backend. Check VITE_API_URL.";
-                }
-            } else if (error.request) {
-                // Request made but no response
-                errorMessage = "No response from server. The backend may be sleeping or down.";
-            } else {
-                errorMessage = error.message;
-            }
-            return { success: false, error: errorMessage };
+            console.error("Signup Error:", error);
+            return { success: false, error: 'Signup failed. Please try again.' };
         }
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem('cashflow_current_user');
         setUser(null);
     };
 
